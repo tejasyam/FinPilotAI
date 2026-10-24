@@ -39,7 +39,7 @@ class MainShellState extends State<MainShell> {
         HomeScreen(controller: widget.controller),
         MoneyScreen(controller: widget.controller),
         AnalysisScreen(controller: widget.controller),
-        const AdvisorScreen(),
+        AdvisorScreen(controller: widget.controller),
         SettingsScreen(controller: widget.controller),
       ],
     ),

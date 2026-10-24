@@ -111,6 +111,19 @@ class SettingsScreen extends StatelessWidget {
                 SwitchListTile.adaptive(
                   contentPadding: EdgeInsets.zero,
                   secondary: const Icon(
+                    Icons.psychology_outlined,
+                    color: AppColors.muted,
+                  ),
+                  title: const Text('On-device language model'),
+                  subtitle: const Text(
+                    'Unavailable and disabled: no model runtime or model is installed. The Advisor uses its deterministic local fallback. No model is downloaded automatically.',
+                  ),
+                  value: false,
+                  onChanged: null,
+                ),
+                SwitchListTile.adaptive(
+                  contentPadding: EdgeInsets.zero,
+                  secondary: const Icon(
                     Icons.notifications_none,
                     color: AppColors.mint,
                   ),
