@@ -26,6 +26,10 @@
 	<string>$(FLUTTER_BUILD_NUMBER)</string>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
+	<key>NSCameraUsageDescription</key>
+	<string>FinPilotAI uses the camera only when you choose to scan a receipt. Receipt images are processed on this device.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>FinPilotAI accesses a selected photo only when you choose to scan a receipt. Receipt images are processed on this device.</string>
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>

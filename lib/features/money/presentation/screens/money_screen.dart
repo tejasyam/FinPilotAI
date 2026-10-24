@@ -6,6 +6,7 @@ import '../../../../core/widgets/app_card.dart';
 import '../../../../data/models/finance_models.dart';
 import '../../../transactions/controllers/finance_controller.dart';
 import '../../../transactions/presentation/screens/transaction_history_screen.dart';
+import '../../../receipts/presentation/screens/receipt_scan_screen.dart';
 
 class MoneyScreen extends StatelessWidget {
   const MoneyScreen({required this.controller, super.key});
@@ -212,6 +213,17 @@ class MoneyScreen extends StatelessWidget {
                         .toList(),
                   ),
                 ),
+              const SizedBox(height: 12),
+              OutlinedButton.icon(
+                onPressed: () => Navigator.push(
+                  context,
+                  MaterialPageRoute<void>(
+                    builder: (_) => ReceiptScanScreen(controller: controller),
+                  ),
+                ),
+                icon: const Icon(Icons.document_scanner_outlined),
+                label: const Text('Scan receipt'),
+              ),
               const SizedBox(height: 12),
               OutlinedButton.icon(
                 onPressed: () => Navigator.push(

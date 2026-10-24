@@ -7,6 +7,7 @@ import '../../../../data/models/finance_models.dart';
 import '../../../transactions/controllers/finance_controller.dart';
 import '../../../transactions/presentation/screens/transaction_history_screen.dart';
 import '../../../shell/presentation/main_shell.dart';
+import '../../../receipts/presentation/screens/receipt_scan_screen.dart';
 
 class HomeScreen extends StatelessWidget {
   const HomeScreen({required this.controller, super.key});
@@ -246,6 +247,17 @@ class HomeScreen extends StatelessWidget {
                     ],
                   ),
                 ),
+              const SizedBox(height: 12),
+              OutlinedButton.icon(
+                onPressed: () => Navigator.push(
+                  context,
+                  MaterialPageRoute<void>(
+                    builder: (_) => ReceiptScanScreen(controller: controller),
+                  ),
+                ),
+                icon: const Icon(Icons.document_scanner_outlined),
+                label: const Text('Scan receipt'),
+              ),
             ],
           ),
         );
