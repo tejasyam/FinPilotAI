@@ -4,13 +4,20 @@ import '../../../../app/app_theme.dart';
 import '../../../../core/widgets/app_card.dart';
 import '../../../transactions/controllers/finance_controller.dart';
 import '../../domain/advisor_financial_context.dart';
+import '../../domain/advisor_conversation_store.dart';
 import '../../domain/advisor_provider.dart';
 
 class AdvisorScreen extends StatefulWidget {
-  const AdvisorScreen({required this.controller, this.provider, super.key});
+  const AdvisorScreen({
+    required this.controller,
+    required this.conversationStore,
+    this.provider,
+    super.key,
+  });
 
   final FinanceController controller;
   final AdvisorProvider? provider;
+  final AdvisorConversationStore conversationStore;
 
   @override
   State<AdvisorScreen> createState() => _AdvisorScreenState();
@@ -19,7 +26,6 @@ class AdvisorScreen extends StatefulWidget {
 class _AdvisorScreenState extends State<AdvisorScreen> {
   final _input = TextEditingController();
   final _scrollController = ScrollController();
-  final List<_AdvisorChatEntry> _messages = [];
   late final AdvisorProvider _provider =
       widget.provider ??
       const AdvisorProviderSelector(fallback: DeterministicAdvisorProvider())
@@ -27,9 +33,20 @@ class _AdvisorScreenState extends State<AdvisorScreen> {
   bool _isResponding = false;
 
   @override
+  void initState() {
+    super.initState();
+    widget.conversationStore.addListener(_conversationChanged);
+  }
+
+  void _conversationChanged() {
+    if (mounted) setState(() {});
+  }
+
+  @override
   void dispose() {
     _input.dispose();
     _scrollController.dispose();
+    widget.conversationStore.removeListener(_conversationChanged);
     super.dispose();
   }
 
@@ -39,9 +56,9 @@ class _AdvisorScreenState extends State<AdvisorScreen> {
     if (question.isEmpty) return;
     _input.clear();
     setState(() {
-      _messages.add(_AdvisorChatEntry(isUser: true, text: question));
       _isResponding = true;
     });
+    widget.conversationStore.add(AdvisorMessage(isUser: true, text: question));
     try {
       final context = AdvisorFinancialContextBuilder.build(
         now: widget.controller.now,
@@ -53,14 +70,12 @@ class _AdvisorScreenState extends State<AdvisorScreen> {
       );
       final answer = await _provider.answer(question, context);
       if (!mounted) return;
-      setState(
-        () => _messages.add(_AdvisorChatEntry(isUser: false, text: answer)),
-      );
+      widget.conversationStore.add(AdvisorMessage(isUser: false, text: answer));
     } catch (_) {
       if (!mounted) return;
       setState(() {
-        _messages.add(
-          const _AdvisorChatEntry(
+        widget.conversationStore.add(
+          const AdvisorMessage(
             isUser: false,
             text: 'I could not create an answer from your saved summaries. Your financial data has not been changed.',
           ),
@@ -76,9 +91,9 @@ class _AdvisorScreenState extends State<AdvisorScreen> {
 
   void _clearConversation() {
     setState(() {
-      _messages.clear();
       _input.clear();
     });
+    widget.conversationStore.clear();
   }
 
   void _scrollToLatest() {
@@ -99,7 +114,7 @@ class _AdvisorScreenState extends State<AdvisorScreen> {
       actions: [
         IconButton(
           tooltip: 'Clear conversation',
-          onPressed: _messages.isEmpty || _isResponding
+          onPressed: widget.conversationStore.messages.isEmpty || _isResponding
               ? null
               : _clearConversation,
           icon: const Icon(Icons.delete_outline),
@@ -168,17 +183,21 @@ class _AdvisorScreenState extends State<AdvisorScreen> {
                 ),
               ),
             Expanded(
-              child: _messages.isEmpty
+              child: widget.conversationStore.messages.isEmpty
                   ? _emptyState(context)
                   : ListView.builder(
                       controller: _scrollController,
                       padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
-                      itemCount: _messages.length + (_isResponding ? 1 : 0),
+                      itemCount:
+                          widget.conversationStore.messages.length +
+                          (_isResponding ? 1 : 0),
                       itemBuilder: (context, index) {
-                        if (index == _messages.length) {
+                        if (index == widget.conversationStore.messages.length) {
                           return const _TypingIndicator();
                         }
-                        return _MessageBubble(entry: _messages[index]);
+                        return _MessageBubble(
+                          entry: widget.conversationStore.messages[index],
+                        );
                       },
                     ),
             ),
@@ -258,17 +277,10 @@ class _AdvisorScreenState extends State<AdvisorScreen> {
   );
 }
 
-class _AdvisorChatEntry {
-  const _AdvisorChatEntry({required this.isUser, required this.text});
-
-  final bool isUser;
-  final String text;
-}
-
 class _MessageBubble extends StatelessWidget {
   const _MessageBubble({required this.entry});
 
-  final _AdvisorChatEntry entry;
+  final AdvisorMessage entry;
 
   @override
   Widget build(BuildContext context) => Align(

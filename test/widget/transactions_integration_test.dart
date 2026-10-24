@@ -14,15 +14,7 @@ void main() {
   ) async {
     final controller = _TestFinanceController();
     await tester.pumpWidget(FinPilotApp(financeController: controller));
-    await tester.enterText(
-      find.widgetWithText(TextFormField, 'Email'),
-      'pilot@example.com',
-    );
-    await tester.enterText(
-      find.widgetWithText(TextFormField, 'Password'),
-      'test-profile',
-    );
-    await tester.tap(find.text('Continue locally'));
+    await tester.tap(find.text('Open local data'));
     await tester.pumpAndSettle();
 
     await tester.tap(find.text('Add').last);
@@ -103,15 +95,7 @@ void main() {
         ),
       ];
     await tester.pumpWidget(FinPilotApp(financeController: controller));
-    await tester.enterText(
-      find.widgetWithText(TextFormField, 'Email'),
-      'pilot@example.com',
-    );
-    await tester.enterText(
-      find.widgetWithText(TextFormField, 'Password'),
-      'test-profile',
-    );
-    await tester.tap(find.text('Continue locally'));
+    await tester.tap(find.text('Open local data'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Money').last);
     await tester.pumpAndSettle();
@@ -155,6 +139,11 @@ class _TestFinanceController extends FinanceController {
 
   @override
   Future<List<FinanceBudget>> budgetsForMonth(DateTime month) async => [];
+
+  @override
+  Future<void> activateLocalSession() async {
+    localSessionActive = true;
+  }
 
   @override
   Future<void> createTransaction(FinanceTransaction value) async {

@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../../app/app_theme.dart';
 import '../../../core/widgets/app_card.dart';
 import '../../advisor/presentation/screens/advisor_screen.dart';
+import '../../advisor/domain/advisor_conversation_store.dart';
 import '../../analysis/presentation/screens/analysis_screen.dart';
 import '../../home/presentation/screens/home_screen.dart';
 import '../../settings/presentation/screens/settings_screen.dart';
@@ -20,8 +21,16 @@ class MainShell extends StatefulWidget {
 
 class MainShellState extends State<MainShell> {
   int _selectedIndex = 0;
+  final AdvisorConversationStore _advisorConversation =
+      AdvisorConversationStore();
 
   void setTab(int index) => setState(() => _selectedIndex = index);
+
+  @override
+  void dispose() {
+    _advisorConversation.dispose();
+    super.dispose();
+  }
 
   @override
   void initState() {
@@ -39,8 +48,14 @@ class MainShellState extends State<MainShell> {
         HomeScreen(controller: widget.controller),
         MoneyScreen(controller: widget.controller),
         AnalysisScreen(controller: widget.controller),
-        AdvisorScreen(controller: widget.controller),
-        SettingsScreen(controller: widget.controller),
+        AdvisorScreen(
+          controller: widget.controller,
+          conversationStore: _advisorConversation,
+        ),
+        SettingsScreen(
+          controller: widget.controller,
+          conversationStore: _advisorConversation,
+        ),
       ],
     ),
     bottomNavigationBar: NavigationBar(

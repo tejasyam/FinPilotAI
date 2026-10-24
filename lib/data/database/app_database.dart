@@ -58,4 +58,17 @@ class AppDatabase {
     _opening = null;
     if (db != null && db.isOpen) await db.close();
   }
+
+  /// Atomically removes all finance records and local preferences while
+  /// retaining the schema and its migration version for future use.
+  Future<void> deleteAllLocalData() async {
+    final db = await database;
+    await db.transaction((transaction) async {
+      await transaction.delete('transactions');
+      await transaction.delete('budgets');
+      await transaction.delete('bills');
+      await transaction.delete('accounts');
+      await transaction.delete('app_settings');
+    });
+  }
 }

@@ -25,7 +25,9 @@ class FinPilotApp extends StatelessWidget {
       title: 'FinPilotAI',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.dark,
-      initialRoute: AppRoutes.login,
+      initialRoute: controller.localSessionActive
+          ? AppRoutes.home
+          : AppRoutes.login,
       onGenerateRoute: (settings) {
         switch (settings.name) {
           case AppRoutes.transactions:
@@ -70,8 +72,8 @@ class FinPilotApp extends StatelessWidget {
         return null;
       },
       routes: {
-        AppRoutes.login: (_) => const LoginScreen(),
-        AppRoutes.register: (_) => const RegisterScreen(),
+        AppRoutes.login: (_) => LoginScreen(controller: controller),
+        AppRoutes.register: (_) => RegisterScreen(controller: controller),
         AppRoutes.home: (_) => MainShell(controller: controller),
       },
     );

@@ -4,9 +4,12 @@ import '../../../../app/app_theme.dart';
 import '../../../../app/router.dart';
 import '../../../../core/widgets/app_card.dart';
 import '../../../../core/widgets/brand_mark.dart';
+import '../../../transactions/controllers/finance_controller.dart';
 
 class RegisterScreen extends StatefulWidget {
-  const RegisterScreen({super.key});
+  const RegisterScreen({required this.controller, super.key});
+
+  final FinanceController controller;
 
   @override
   State<RegisterScreen> createState() => _RegisterScreenState();
@@ -108,9 +111,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                         );
                         return;
                       }
-                      Navigator.of(
-                        context,
-                      ).pushNamedAndRemoveUntil(AppRoutes.home, (_) => false);
+                      _createProfile(context);
                     },
                     child: const Text('Continue with local profile'),
                   ),
@@ -122,4 +123,25 @@ class _RegisterScreenState extends State<RegisterScreen> {
       ),
     ),
   );
+
+  Future<void> _createProfile(BuildContext context) async {
+    try {
+      await widget.controller.saveLocalProfile(
+        name: _name.text,
+        email: _email.text,
+      );
+      if (context.mounted) {
+        Navigator.of(context)
+            .pushNamedAndRemoveUntil(AppRoutes.home, (_) => false);
+      }
+    } catch (_) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Could not save the local profile. Try again.'),
+          ),
+        );
+      }
+    }
+  }
 }

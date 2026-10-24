@@ -99,7 +99,7 @@ class _ReceiptScanScreenState extends State<ReceiptScanScreen> {
         setState(() {
           _error = message.contains('denied') || message.contains('permission')
               ? 'Camera or photo permission was denied. Allow access in device settings and try again.'
-              : 'Could not scan this image. Try a clearer, well-lit receipt. ($error)';
+              : 'Could not scan this image. Try a clearer, well-lit receipt.';
         });
       }
     } finally {

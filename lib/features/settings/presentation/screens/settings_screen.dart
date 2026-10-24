@@ -4,12 +4,19 @@ import 'package:flutter/material.dart';
 import '../../../../app/app_theme.dart';
 import '../../../../app/router.dart';
 import '../../../../core/widgets/app_card.dart';
+import '../../../advisor/domain/advisor_conversation_store.dart';
 import '../../../transactions/controllers/finance_controller.dart';
+import 'privacy_data_screen.dart';
 
 class SettingsScreen extends StatelessWidget {
-  const SettingsScreen({required this.controller, super.key});
+  const SettingsScreen({
+    required this.controller,
+    required this.conversationStore,
+    super.key,
+  });
 
   final FinanceController controller;
+  final AdvisorConversationStore conversationStore;
 
   Future<void> _toggleReminders(BuildContext context, bool enabled) async {
     if (!enabled) {
@@ -20,8 +27,10 @@ class SettingsScreen extends StatelessWidget {
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Enable bill reminders?'),
-        content: const Text(
-          'FinPilotAI can schedule local notifications on this device for your saved bill due dates. Your bills stay in local storage. Android or iOS will ask for notification permission next. Browser previews do not support scheduled bill reminders.',
+        content: Text(
+          controller.notificationPermissionDenied
+              ? 'Notification permission was previously denied. Enable it in device settings first. FinPilotAI will ask again only after you choose Try permission again.'
+              : 'FinPilotAI can schedule local notifications on Android or iOS for saved bill due dates. Browser and desktop previews do not schedule native bill reminders.',
         ),
         actions: [
           TextButton(
@@ -30,13 +39,39 @@ class SettingsScreen extends StatelessWidget {
           ),
           FilledButton(
             onPressed: () => Navigator.pop(context, true),
-            child: const Text('Continue'),
+            child: Text(
+              controller.notificationPermissionDenied
+                  ? 'Try permission again'
+                  : 'Continue',
+            ),
           ),
         ],
       ),
     );
     if (continueSetup != true || !context.mounted) return;
-    await controller.setBillRemindersEnabled(true);
+    if (controller.notificationPermissionDenied) {
+      await controller.retryBillNotificationPermission();
+    } else {
+      await controller.setBillRemindersEnabled(true);
+    }
+  }
+
+  Future<void> _signOut(BuildContext context) async {
+    try {
+      await controller.signOut();
+      if (context.mounted) {
+        Navigator.of(context)
+            .pushNamedAndRemoveUntil(AppRoutes.login, (_) => false);
+      }
+    } catch (_) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Could not end the local session. Try again.'),
+          ),
+        );
+      }
+    }
   }
 
   @override
@@ -47,26 +82,31 @@ class SettingsScreen extends StatelessWidget {
       builder: (context, _) => ListView(
         padding: const EdgeInsets.all(20),
         children: [
-          const AppCard(
+          AppCard(
             child: Row(
               children: [
-                CircleAvatar(
+                const CircleAvatar(
                   backgroundColor: AppColors.elevated,
                   child: Icon(Icons.person_outline, color: AppColors.mint),
                 ),
-                SizedBox(width: 14),
+                const SizedBox(width: 14),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        'Local profile preview',
-                        style: TextStyle(fontWeight: FontWeight.w700),
+                        controller.localProfileName ?? 'Local profile',
+                        style: const TextStyle(fontWeight: FontWeight.w700),
                       ),
-                      SizedBox(height: 4),
+                      const SizedBox(height: 4),
                       Text(
-                        'No account is signed in',
-                        style: TextStyle(color: AppColors.muted, fontSize: 12),
+                        controller.localProfileEmail == null
+                            ? 'Stored on this device · not password protected'
+                            : '${controller.localProfileEmail} · local only',
+                        style: const TextStyle(
+                          color: AppColors.muted,
+                          fontSize: 12,
+                        ),
                       ),
                     ],
                   ),
@@ -78,12 +118,6 @@ class SettingsScreen extends StatelessWidget {
           AppCard(
             child: Column(
               children: [
-                _item(
-                  context,
-                  Icons.person_outline,
-                  'Profile',
-                  'Profile editing is planned',
-                ),
                 ListTile(
                   contentPadding: EdgeInsets.zero,
                   leading: const Icon(
@@ -130,7 +164,7 @@ class SettingsScreen extends StatelessWidget {
                   title: const Text('Bill due reminders'),
                   subtitle: Text(
                     controller.billRemindersEnabled
-                        ? 'Local due-date reminders are enabled.'
+                        ? 'Native local due-date reminders are enabled.'
                         : _notificationAvailability(),
                   ),
                   value: controller.billRemindersEnabled,
@@ -144,39 +178,53 @@ class SettingsScreen extends StatelessWidget {
                       style: const TextStyle(color: AppColors.coral),
                     ),
                   ),
-                _item(
-                  context,
-                  Icons.lock_outline,
-                  'App lock',
-                  'No app lock is enabled',
+                ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  leading: const Icon(
+                    Icons.lock_outline,
+                    color: AppColors.muted,
+                  ),
+                  title: const Text('App lock'),
+                  subtitle: const Text(
+                    'No app lock or password protection is enabled',
+                  ),
                 ),
-                _item(
-                  context,
-                  Icons.privacy_tip_outlined,
-                  'Privacy and data',
-                  'Local-first foundation',
-                ),
-                _item(
-                  context,
-                  Icons.help_outline,
-                  'Help and support',
-                  'Foundation preview',
+                ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  leading: const Icon(
+                    Icons.privacy_tip_outlined,
+                    color: AppColors.mint,
+                  ),
+                  title: const Text('Privacy and data'),
+                  subtitle: const Text(
+                    'Review local storage, export, and deletion controls',
+                  ),
+                  trailing: const Icon(Icons.chevron_right),
+                  onTap: () => Navigator.of(context).push(
+                    MaterialPageRoute<void>(
+                      builder: (_) => PrivacyDataScreen(
+                        controller: controller,
+                        conversationStore: conversationStore,
+                      ),
+                    ),
+                  ),
                 ),
                 const Divider(height: 16),
                 ListTile(
                   contentPadding: EdgeInsets.zero,
                   leading: const Icon(Icons.logout, color: AppColors.coral),
                   title: const Text('Sign out'),
-                  subtitle: const Text('Return to local profile entry'),
-                  onTap: () => Navigator.of(context)
-                      .pushNamedAndRemoveUntil(AppRoutes.login, (_) => false),
+                  subtitle: const Text(
+                    'End this local session; keep financial records on device',
+                  ),
+                  onTap: () => _signOut(context),
                 ),
               ],
             ),
           ),
           const SizedBox(height: 18),
           const Text(
-            'FinPilotAI · Foundation preview',
+            'FinPilotAI · local finance preview',
             textAlign: TextAlign.center,
             style: TextStyle(color: AppColors.muted, fontSize: 12),
           ),
@@ -189,22 +237,12 @@ class SettingsScreen extends StatelessWidget {
     if (kIsWeb) {
       return 'Scheduled reminders are unavailable in browser previews.';
     }
-    return 'Enable device notifications for saved bill due dates.';
+    if (defaultTargetPlatform == TargetPlatform.android ||
+        defaultTargetPlatform == TargetPlatform.iOS) {
+      return controller.notificationPermissionDenied
+          ? 'Permission was denied. Enable it in device settings to retry.'
+          : 'Enable device notifications for saved bill due dates.';
+    }
+    return 'Scheduled bill reminders are supported on Android and iOS only.';
   }
-
-  static Widget _item(
-    BuildContext context,
-    IconData icon,
-    String label,
-    String note,
-  ) => ListTile(
-    contentPadding: EdgeInsets.zero,
-    leading: Icon(icon, color: AppColors.mint),
-    title: Text(label),
-    subtitle: Text(note),
-    trailing: const Icon(Icons.chevron_right),
-    onTap: () => ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('$label is planned for a later milestone.')),
-    ),
-  );
 }

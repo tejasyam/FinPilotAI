@@ -5,6 +5,7 @@ import '../../../data/models/finance_models.dart';
 import '../../../data/repositories/finance_repositories.dart';
 import '../../../domain/finance_calculator.dart';
 import '../../bills/services/bill_notification_service.dart';
+import '../../settings/domain/finance_export.dart';
 
 class FinanceController extends ChangeNotifier {
   FinanceController({
@@ -36,6 +37,10 @@ class FinanceController extends ChangeNotifier {
   List<BillReminder> bills = [];
   bool billRemindersEnabled = false;
   String? notificationError;
+  bool notificationPermissionDenied = false;
+  bool localSessionActive = false;
+  String? localProfileName;
+  String? localProfileEmail;
 
   DateTime get now => DateTime.now();
   DateTime get monthStart =>
@@ -84,7 +89,8 @@ class FinanceController extends ChangeNotifier {
       budgets = await _budgets.getForMonth(currentPeriodId);
       bills = await _bills.getAll();
     } catch (exception) {
-      error = 'Could not load local finance data: $exception';
+      error =
+          'Could not load local finance data. Try again or restart the app.';
     } finally {
       isLoading = false;
       notifyListeners();
@@ -95,10 +101,16 @@ class FinanceController extends ChangeNotifier {
     await _database.initialize();
     try {
       await _notificationService.initialize();
-    } catch (exception) {
-      notificationError = 'Could not initialize local reminders: $exception';
+    } catch (_) {
+      notificationError = 'Local reminders could not be initialized.';
     }
     billRemindersEnabled = await _settings.getBillRemindersEnabled();
+    notificationPermissionDenied = await _settings
+        .getNotificationPermissionDenied();
+    localSessionActive = await _settings.getLocalSessionActive();
+    final profile = await _settings.getLocalProfile();
+    localProfileName = profile['name'];
+    localProfileEmail = profile['email'];
     if (billRemindersEnabled) {
       for (final bill in await _bills.getAll()) {
         if (!bill.isPaid) await _scheduleReminder(bill);
@@ -107,10 +119,56 @@ class FinanceController extends ChangeNotifier {
   }
 
   void setStartupError(Object exception) {
-    error = 'Could not initialize local finance storage: $exception';
+    error = 'Could not initialize local finance storage. Restart the app and try again.';
     isLoading = false;
     notifyListeners();
   }
+
+  Future<void> activateLocalSession() async {
+    await _settings.setLocalSessionActive(true);
+    localSessionActive = true;
+    notifyListeners();
+  }
+
+  Future<void> saveLocalProfile({required String name, String? email}) async {
+    await _settings.saveLocalProfile(name: name, email: email);
+    localProfileName = name.trim();
+    localProfileEmail = email?.trim().isEmpty ?? true ? null : email!.trim();
+    await activateLocalSession();
+  }
+
+  Future<void> signOut() async {
+    await _settings.setLocalSessionActive(false);
+    localSessionActive = false;
+    notifyListeners();
+  }
+
+  Future<void> deleteAllLocalData() async {
+    // Cancel first. If that fails, preserve the database rather than leaving
+    // scheduled notifications pointing to records the user deleted.
+    await _notificationService.cancelAll();
+    await _database.deleteAllLocalData();
+    transactions = [];
+    accounts = [];
+    budgets = [];
+    bills = [];
+    billRemindersEnabled = false;
+    notificationPermissionDenied = false;
+    localSessionActive = false;
+    localProfileName = null;
+    localProfileEmail = null;
+    notificationError = null;
+    error = null;
+    notifyListeners();
+  }
+
+  Future<Map<String, Object?>> buildFinancialExport() async =>
+      FinanceExport.build(
+        accounts: await _accounts.getAll(),
+        transactions: await _transactions.getAll(),
+        budgets: await _budgets.getAll(),
+        bills: await _bills.getAll(),
+      );
 
   Future<void> createTransaction(FinanceTransaction value) async {
     await _transactions.create(value);
@@ -187,24 +245,35 @@ class FinanceController extends ChangeNotifier {
       billRemindersEnabled = false;
       try {
         await _notificationService.cancelAll();
-      } catch (exception) {
-        notificationError = 'Could not cancel local reminders: $exception';
+      } catch (_) {
+        notificationError = 'Could not cancel local reminders.';
       }
       notifyListeners();
       return true;
     }
     if (!_notificationService.supported) {
-      notificationError = 'Scheduled reminders are available on Android and iOS only. Browser previews do not support scheduled bill reminders.';
+      notificationError = kIsWeb
+          ? 'Browser previews do not support scheduled bill reminders.'
+          : 'Scheduled bill reminders are supported on Android and iOS only.';
+      notifyListeners();
+      return false;
+    }
+    if (notificationPermissionDenied) {
+      notificationError = 'Notification access was previously denied. Enable it in device settings, then choose “Try permission again” here.';
       notifyListeners();
       return false;
     }
     try {
       final granted = await _notificationService.requestPermission();
       if (!granted) {
+        notificationPermissionDenied = true;
+        await _settings.setNotificationPermissionDenied(true);
         notificationError = 'Notification permission was not granted. Enable it in device settings to use bill reminders.';
         notifyListeners();
         return false;
       }
+      notificationPermissionDenied = false;
+      await _settings.setNotificationPermissionDenied(false);
       await _settings.setBillRemindersEnabled(true);
       billRemindersEnabled = true;
       for (final bill in bills) {
@@ -212,11 +281,17 @@ class FinanceController extends ChangeNotifier {
       }
       notifyListeners();
       return true;
-    } catch (exception) {
-      notificationError = 'Could not enable local reminders: $exception';
+    } catch (_) {
+      notificationError = 'Could not enable local reminders. Check device notification settings and try again.';
       notifyListeners();
       return false;
     }
+  }
+
+  Future<bool> retryBillNotificationPermission() async {
+    notificationPermissionDenied = false;
+    await _settings.setNotificationPermissionDenied(false);
+    return setBillRemindersEnabled(true);
   }
 
   Future<void> _scheduleReminder(BillReminder bill) async {
@@ -224,16 +299,16 @@ class FinanceController extends ChangeNotifier {
     try {
       await _notificationService.schedule(bill);
       notificationError = null;
-    } catch (exception) {
-      notificationError = 'Could not schedule reminder: $exception';
+    } catch (_) {
+      notificationError = 'Could not schedule a local bill reminder.';
     }
   }
 
   Future<void> _cancelReminder(BillReminder bill) async {
     try {
       await _notificationService.cancel(bill);
-    } catch (exception) {
-      notificationError = 'Could not update reminder: $exception';
+    } catch (_) {
+      notificationError = 'Could not update a local bill reminder.';
     }
   }
 

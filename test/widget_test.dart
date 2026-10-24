@@ -5,46 +5,29 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
-  testWidgets('login validates required fields and enters the local preview', (
-    tester,
-  ) async {
-    final controller = _TestFinanceController();
-    await tester.pumpWidget(FinPilotApp(financeController: controller));
+  testWidgets(
+    'local data entry opens the preview without password collection',
+    (tester) async {
+      final controller = _TestFinanceController();
+      await tester.pumpWidget(FinPilotApp(financeController: controller));
 
-    expect(find.text('Welcome back'), findsOneWidget);
-    await tester.tap(find.text('Continue locally'));
-    await tester.pumpAndSettle();
-    expect(find.text('Enter your email.'), findsOneWidget);
+      expect(find.text('Welcome back'), findsOneWidget);
+      expect(find.textContaining('does not verify an account'), findsOneWidget);
+      expect(find.text('Password'), findsNothing);
+      await tester.tap(find.text('Open local data'));
+      await tester.pumpAndSettle();
 
-    await tester.enterText(
-      find.widgetWithText(TextFormField, 'Email'),
-      'pilot@example.com',
-    );
-    await tester.enterText(
-      find.widgetWithText(TextFormField, 'Password'),
-      'local-preview',
-    );
-    await tester.tap(find.text('Continue locally'));
-    await tester.pumpAndSettle();
-
-    expect(find.text('Total balance'), findsOneWidget);
-    expect(find.text('No transactions yet'), findsOneWidget);
-  });
+      expect(find.text('Total balance'), findsOneWidget);
+      expect(find.text('No transactions yet'), findsOneWidget);
+    },
+  );
 
   testWidgets('all five main destinations show distinct screens', (
     tester,
   ) async {
     final controller = _TestFinanceController();
     await tester.pumpWidget(FinPilotApp(financeController: controller));
-    await tester.enterText(
-      find.widgetWithText(TextFormField, 'Email'),
-      'pilot@example.com',
-    );
-    await tester.enterText(
-      find.widgetWithText(TextFormField, 'Password'),
-      'local-preview',
-    );
-    await tester.tap(find.text('Continue locally'));
+    await tester.tap(find.text('Open local data'));
     await tester.pumpAndSettle();
 
     for (final destination in [
@@ -62,6 +45,13 @@ void main() {
         expect(find.text(destination), findsWidgets);
       }
     }
+  });
+
+  testWidgets('restored local session starts at Home', (tester) async {
+    final controller = _TestFinanceController()..localSessionActive = true;
+    await tester.pumpWidget(FinPilotApp(financeController: controller));
+    expect(find.text('Total balance'), findsOneWidget);
+    expect(find.text('Welcome back'), findsNothing);
   });
 
   testWidgets('registration requires local-profile acknowledgement', (
@@ -94,4 +84,16 @@ class _TestFinanceController extends FinanceController {
 
   @override
   Future<List<FinanceBudget>> budgetsForMonth(DateTime month) async => [];
+
+  @override
+  Future<void> activateLocalSession() async {
+    localSessionActive = true;
+  }
+
+  @override
+  Future<void> saveLocalProfile({required String name, String? email}) async {
+    localProfileName = name.trim();
+    localProfileEmail = email;
+    localSessionActive = true;
+  }
 }

@@ -1,5 +1,6 @@
 import 'package:finpilot_ai/data/models/finance_models.dart';
 import 'package:finpilot_ai/features/advisor/presentation/screens/advisor_screen.dart';
+import 'package:finpilot_ai/features/advisor/domain/advisor_conversation_store.dart';
 import 'package:finpilot_ai/features/transactions/controllers/finance_controller.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -10,7 +11,12 @@ void main() {
   ) async {
     final controller = _FakeFinanceController();
     await tester.pumpWidget(
-      MaterialApp(home: AdvisorScreen(controller: controller)),
+      MaterialApp(
+        home: AdvisorScreen(
+          controller: controller,
+          conversationStore: AdvisorConversationStore(),
+        ),
+      ),
     );
 
     expect(find.text('Deterministic local fallback'), findsOneWidget);

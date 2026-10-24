@@ -19,8 +19,10 @@ abstract class _Repository {
         values,
         conflictAlgorithm: ConflictAlgorithm.abort,
       );
-    } on DatabaseException catch (error) {
-      throw AppException('Could not create record: $error');
+    } on DatabaseException {
+      throw const AppException(
+        'Could not create record because local storage failed.',
+      );
     }
   }
 
@@ -37,8 +39,10 @@ abstract class _Repository {
         whereArgs: [id],
       );
       if (count == 0) throw const AppException('Record not found.');
-    } on DatabaseException catch (error) {
-      throw AppException('Could not update record: $error');
+    } on DatabaseException {
+      throw const AppException(
+        'Could not update record because local storage failed.',
+      );
     }
   }
 
@@ -50,8 +54,10 @@ abstract class _Repository {
         whereArgs: [id],
       );
       if (count == 0) throw const AppException('Record not found.');
-    } on DatabaseException catch (error) {
-      throw AppException('Could not delete record: $error');
+    } on DatabaseException {
+      throw const AppException(
+        'Could not delete record because local storage failed.',
+      );
     }
   }
 
@@ -161,8 +167,10 @@ class BudgetRepository extends _Repository {
   }) async {
     final rows = await (await db).query(
       'budgets',
-      where: 'period_id = ? AND category IS ?',
-      whereArgs: [value.periodId, value.category],
+      where: value.category == null
+          ? 'period_id = ? AND category IS NULL'
+          : 'period_id = ? AND category = ?',
+      whereArgs: [value.periodId, if (value.category != null) value.category],
     );
     if (rows.any((row) => row['id'] != excludingId)) {
       throw const AppException(
@@ -185,6 +193,11 @@ class BudgetRepository extends _Repository {
         whereArgs: [periodId],
         orderBy: 'category',
       )).map(FinanceBudget.fromMap).toList(growable: false);
+
+  Future<List<FinanceBudget>> getAll() async => (await (await db).query(
+    'budgets',
+    orderBy: 'period_id DESC, category COLLATE NOCASE',
+  )).map(FinanceBudget.fromMap).toList(growable: false);
 }
 
 class BillRepository extends _Repository {
@@ -306,6 +319,71 @@ class LocalSettingsRepository extends _Repository {
     await (await db).insert('app_settings', {
       'setting_key': 'bill_reminders_enabled',
       'setting_value': enabled.toString(),
+    }, conflictAlgorithm: ConflictAlgorithm.replace);
+  }
+
+  Future<bool> getNotificationPermissionDenied() async =>
+      _getBool('notification_permission_denied');
+
+  Future<void> setNotificationPermissionDenied(bool denied) =>
+      _setBool('notification_permission_denied', denied);
+
+  Future<bool> getLocalSessionActive() => _getBool('local_session_active');
+
+  Future<void> setLocalSessionActive(bool active) =>
+      _setBool('local_session_active', active);
+
+  Future<Map<String, String?>> getLocalProfile() async {
+    final rows = await (await db).query(
+      'app_settings',
+      columns: ['setting_key', 'setting_value'],
+      where: 'setting_key IN (?, ?)',
+      whereArgs: ['local_profile_name', 'local_profile_email'],
+    );
+    return {
+      for (final row in rows)
+        (row['setting_key']! as String).replaceFirst('local_profile_', ''):
+            row['setting_value'] as String,
+    };
+  }
+
+  Future<void> saveLocalProfile({required String name, String? email}) async {
+    final database = await db;
+    await database.transaction((transaction) async {
+      await transaction.insert('app_settings', {
+        'setting_key': 'local_profile_name',
+        'setting_value': name.trim(),
+      }, conflictAlgorithm: ConflictAlgorithm.replace);
+      if (email == null || email.trim().isEmpty) {
+        await transaction.delete(
+          'app_settings',
+          where: 'setting_key = ?',
+          whereArgs: ['local_profile_email'],
+        );
+      } else {
+        await transaction.insert('app_settings', {
+          'setting_key': 'local_profile_email',
+          'setting_value': email.trim(),
+        }, conflictAlgorithm: ConflictAlgorithm.replace);
+      }
+    });
+  }
+
+  Future<bool> _getBool(String key) async {
+    final rows = await (await db).query(
+      'app_settings',
+      columns: ['setting_value'],
+      where: 'setting_key = ?',
+      whereArgs: [key],
+      limit: 1,
+    );
+    return rows.isNotEmpty && rows.first['setting_value'] == 'true';
+  }
+
+  Future<void> _setBool(String key, bool value) async {
+    await (await db).insert('app_settings', {
+      'setting_key': key,
+      'setting_value': value.toString(),
     }, conflictAlgorithm: ConflictAlgorithm.replace);
   }
 }
