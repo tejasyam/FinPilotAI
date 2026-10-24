@@ -276,11 +276,14 @@ class FinanceController extends ChangeNotifier {
       await _settings.setNotificationPermissionDenied(false);
       await _settings.setBillRemindersEnabled(true);
       billRemindersEnabled = true;
+      var allScheduled = true;
       for (final bill in bills) {
-        if (!bill.isPaid) await _scheduleReminder(bill);
+        if (!bill.isPaid) {
+          allScheduled = await _scheduleReminder(bill) && allScheduled;
+        }
       }
       notifyListeners();
-      return true;
+      return allScheduled;
     } catch (_) {
       notificationError = 'Could not enable local reminders. Check device notification settings and try again.';
       notifyListeners();
@@ -294,13 +297,14 @@ class FinanceController extends ChangeNotifier {
     return setBillRemindersEnabled(true);
   }
 
-  Future<void> _scheduleReminder(BillReminder bill) async {
-    if (!billRemindersEnabled || bill.isPaid) return;
+  Future<bool> _scheduleReminder(BillReminder bill) async {
+    if (!billRemindersEnabled || bill.isPaid) return true;
     try {
       await _notificationService.schedule(bill);
-      notificationError = null;
+      return true;
     } catch (_) {
       notificationError = 'Could not schedule a local bill reminder.';
+      return false;
     }
   }
 

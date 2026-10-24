@@ -1,11 +1,11 @@
 {
-    "name": "finpilot_ai",
-    "short_name": "finpilot_ai",
+    "name": "FinPilotAI",
+    "short_name": "FinPilotAI",
     "start_url": ".",
     "display": "standalone",
-    "background_color": "#0175C2",
-    "theme_color": "#0175C2",
-    "description": "A new Flutter project.",
+    "background_color": "#080F1B",
+    "theme_color": "#080F1B",
+    "description": "Local-first personal finance tracking, budgets, and bill reminders.",
     "orientation": "portrait-primary",
     "prefer_related_applications": false,
     "icons": [

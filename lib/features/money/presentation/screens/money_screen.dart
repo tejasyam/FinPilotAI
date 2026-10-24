@@ -110,7 +110,7 @@ class MoneyScreen extends StatelessWidget {
                       ),
                       const SizedBox(height: 5),
                       const Text(
-                        'Budget setup is not available in this milestone.',
+                        'Manage monthly and category limits in Settings.',
                         style: TextStyle(color: AppColors.muted, fontSize: 12),
                       ),
                     ] else ...[

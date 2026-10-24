@@ -164,7 +164,9 @@ class SettingsScreen extends StatelessWidget {
                   title: const Text('Bill due reminders'),
                   subtitle: Text(
                     controller.billRemindersEnabled
-                        ? 'Native local due-date reminders are enabled.'
+                        ? controller.notificationError == null
+                              ? 'Native local due-date reminders are enabled.'
+                              : 'Reminders are enabled, but one or more need attention below.'
                         : _notificationAvailability(),
                   ),
                   value: controller.billRemindersEnabled,

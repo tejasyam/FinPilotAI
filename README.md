@@ -26,16 +26,52 @@ FinPilotAI is a local-first personal finance app built with Flutter. Financial d
 
 Run `flutter test` to exercise model validation, finance calculations, repositories, migrations, and persistence using isolated local test databases.
 
-## Getting Started
+## Features and architecture
 
-This project is a starting point for a Flutter application.
+FinPilotAI currently provides a five-tab local finance experience: Home, Money, Analysis, Advisor, and Settings. Implemented flows include local profile entry, accounts, transactions, integer-paise budgeting and analysis, recurring bills, supported-platform local reminders, receipt OCR review on supported mobile platforms, deterministic Advisor responses, JSON export, and confirmed local-data deletion.
 
-A few resources to get you started if this is your first Flutter project:
+The code is organized by feature under `lib/features`, with shared app setup and routing in `lib/app`, persistent models and repositories in `lib/data`, and calculations/recurrence rules in `lib/domain`. `FinanceController` coordinates app state and repositories. Existing unit, widget, and data tests are under `test/`.
 
-- [Learn Flutter](https://docs.flutter.dev/get-started/learn-flutter)
-- [Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Flutter learning resources](https://docs.flutter.dev/reference/learning-resources)
+## Windows setup and commands
 
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+The project uses Flutter and Dart from the Flutter SDK. In the current development environment the SDK is at `D:\Development\flutter`; if it is not already on `PATH`, use:
+
+```powershell
+$env:Path = "D:\Development\flutter\bin;$env:Path"
+flutter --version
+dart --version
+flutter pub get
+```
+
+Start the browser preview from the project root:
+
+```powershell
+cd D:\Development\finpilot_new
+flutter run -d chrome
+```
+
+Run formatter, static analysis, and tests:
+
+```powershell
+dart format lib test
+flutter analyze
+flutter test
+flutter build web --release
+```
+
+The web build uses SQLite persisted in browser IndexedDB through `sqflite_common_ffi_web`. Browser storage belongs to that origin/profile and is not a cloud backup. Receipt OCR and scheduled bill notifications are unavailable in the browser preview; the UI reports those limitations.
+
+## Platform builds and release preparation
+
+- **Web:** Flutter web toolchain; `flutter build web --release` builds the preview. This does not verify native behavior.
+- **Android:** Install Android Studio or the Android command-line tools, Android SDK platform/build tools, and a compatible JDK; configure SDK paths and accept Android SDK licenses before `flutter doctor` and `flutter build apk --debug`. An Android SDK/device was not available in the audited environment. The current Gradle release build uses the debug signing key and is not suitable for distribution. Configure a user-managed release keystore and secret-safe signing properties before any release build. Do not commit signing secrets.
+- **iOS:** Requires macOS, Xcode, Apple signing configuration, and a supported iOS device/simulator. Windows cannot run the Xcode build. Current deployment target is iOS 15.0. The iOS bundle identifier (`com.finpilotai.finpilotAi`) and Android application ID (`com.finpilotai.finpilot_ai`) differ; choose and reserve the desired production identifiers before store setup, provisioning, or release.
+- **Windows/Linux/macOS:** Flutter desktop tooling plus each platform's native build prerequisites are required. Local reminders are implemented only for Android/iOS; OCR is implemented only for Android/iOS.
+
+Android 13+ notification permission and iOS notification permission are requested only when the user enables reminders. Android schedules inexact reminders and does not request exact-alarm access. iOS usage descriptions for camera/photo selection are in `ios/Runner/Info.plist`. Physical-device verification is still needed for actual permission dialogs, notification delivery/rescheduling, camera/gallery behavior, and OCR.
+
+## Current limitations and planned work
+
+Local profile entry is a convenience session, not secure authentication; it has no password, server verification, app lock, or database encryption. The database and browser storage are local but are not encrypted by this application. Deletion is not a forensic secure erase and cannot remove exports or independent backups. The Advisor is deterministic and local; there is no integrated or verified LLM. OCR uses on-device ML Kit on supported mobile platforms and is heuristic; verify extracted fields before saving. No bank integration, cloud sync, remote push, biometric lock, database encryption, or AI model inference is implemented.
+
+Release work still includes selecting a consistent production app identifier, configuring Android release signing, completing native builds and device testing, and reviewing store-specific privacy and distribution requirements. No signed distributable or store release is produced by these commands.

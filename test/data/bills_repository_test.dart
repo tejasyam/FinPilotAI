@@ -197,6 +197,32 @@ void main() {
     },
   );
 
+  test(
+    'reports partial reminder scheduling failure without hiding it',
+    () async {
+      await controller.load();
+      await bills.create(
+        _bill(
+          id: 'schedule-fails',
+          due: DateTime.now().add(const Duration(days: 5)),
+        ),
+      );
+      await bills.create(
+        _bill(
+          id: 'schedule-succeeds',
+          due: DateTime.now().add(const Duration(days: 6)),
+        ),
+      );
+      notificationService.scheduleFailureFor = 'schedule-fails';
+      await controller.load();
+
+      expect(await controller.setBillRemindersEnabled(true), isFalse);
+      expect(controller.billRemindersEnabled, isTrue);
+      expect(controller.notificationError, contains('Could not schedule'));
+      expect(notificationService.scheduled, ['schedule-succeeds']);
+    },
+  );
+
   test('version one bill rows migrate with a recurrence anchor', () async {
     ffi.sqfliteFfiInit();
     final path = p.join(
